@@ -237,6 +237,18 @@ pub enum NodeData {
     Comment(Comment),
 }
 
+/// The document compatibility mode (quirks mode) of a document.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum QuirksMode {
+    /// Standards mode (no quirks).
+    #[default]
+    NoQuirks,
+    /// Quirks mode for backward-compatibility with legacy web pages.
+    Quirks,
+    /// Limited quirks mode (also known as almost-standards mode).
+    LimitedQuirks,
+}
+
 impl NodeData {
     /// Returns the element reference if this node is an `Element`.
     #[must_use]

@@ -4,6 +4,7 @@ use astra_dom::Document;
 
 use crate::token::Token;
 use crate::tokenizer::Tokenizer;
+use crate::tree_builder::TreeBuilder;
 
 /// Configuration options for the HTML parser.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,96 +79,19 @@ impl Parser {
     /// Parses an HTML input string into a DOM [`Document`].
     #[must_use]
     pub fn parse(&self, html: &str) -> Document {
-        let mut document = Document::new();
+        let mut builder = TreeBuilder::new(self.options);
         let mut tokenizer = Tokenizer::new(html);
-        let mut stack = vec![document.root()];
 
         loop {
             let token = tokenizer.next_token();
-            if token == Token::Eof {
+            let is_eof = token == Token::Eof;
+            builder.process_token(token, &mut tokenizer);
+            if is_eof {
                 break;
-            }
-
-            match token {
-                Token::Doctype(doctype) => {
-                    let doctype_id =
-                        document.create_doctype(doctype.name, doctype.public_id, doctype.system_id);
-                    // Doctype is attached directly to the document root
-                    let _ = document.append_child(document.root(), doctype_id);
-                }
-                Token::StartTag(start_tag) => {
-                    let parent = *stack.last().unwrap_or(&document.root());
-                    let elem_id = document.create_element_with_attributes(
-                        start_tag.name.clone(),
-                        start_tag.attributes,
-                    );
-                    let _ = document.append_child(parent, elem_id);
-
-                    let is_void = is_void_element(&start_tag.name);
-                    if !is_void && !start_tag.self_closing {
-                        stack.push(elem_id);
-                    }
-                }
-                Token::EndTag(end_tag) => {
-                    if is_void_element(&end_tag.name) {
-                        // Void elements cannot be explicitly closed via end tag; ignore
-                        continue;
-                    }
-
-                    // Search stack from top to bottom (excluding root at index 0)
-                    let mut match_idx = None;
-                    for i in (1..stack.len()).rev() {
-                        let node_id = stack[i];
-                        if let Some(node) = document.get(node_id) {
-                            if let Some(elem) = node.as_element() {
-                                if elem.tag_name().eq_ignore_ascii_case(&end_tag.name) {
-                                    match_idx = Some(i);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if let Some(idx) = match_idx {
-                        // Pop elements off stack down to and including the matched element
-                        stack.truncate(idx);
-                    }
-                    // If not found in stack, this is a stray closing tag; ignore (error recovery)
-                }
-                Token::Text(text) => {
-                    let is_whitespace_only = text.chars().all(char::is_whitespace);
-                    if is_whitespace_only && !self.options.preserve_whitespace_only_text {
-                        continue;
-                    }
-
-                    let parent = *stack.last().unwrap_or(&document.root());
-
-                    // Coalesce with existing preceding text child if present
-                    let mut coalesced = false;
-                    if let Some(last_child) = document.last_child(parent) {
-                        if let Some(node) = document.get_mut(last_child) {
-                            if let Some(text_node) = node.as_text_mut() {
-                                text_node.append(&text);
-                                coalesced = true;
-                            }
-                        }
-                    }
-
-                    if !coalesced {
-                        let text_id = document.create_text(text);
-                        let _ = document.append_child(parent, text_id);
-                    }
-                }
-                Token::Comment(comment) => {
-                    let parent = *stack.last().unwrap_or(&document.root());
-                    let comment_id = document.create_comment(comment);
-                    let _ = document.append_child(parent, comment_id);
-                }
-                Token::Eof => break,
             }
         }
 
-        document
+        builder.finish()
     }
 }
 

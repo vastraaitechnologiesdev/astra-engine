@@ -23,7 +23,7 @@ pub mod id;
 pub mod iter;
 pub mod node;
 
-pub use data::{Comment, DocumentType, Element, NodeData, Text};
+pub use data::{Comment, DocumentType, Element, NodeData, QuirksMode, Text};
 pub use document::Document;
 pub use error::DomError;
 pub use id::NodeId;

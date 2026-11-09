@@ -3,11 +3,29 @@
 use crate::entity::decode_entities;
 use crate::token::{DoctypeToken, EndTagToken, StartTagToken, Token};
 
+/// The parsing state of the tokenizer.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum TokenizerState {
+    /// Default data state where tags and character data are parsed normally.
+    #[default]
+    Data,
+    /// RCDATA state (e.g. inside `<title>`, `<textarea>`).
+    /// Entities are decoded, but only the matching end tag terminates the state.
+    Rcdata(String),
+    /// RAWTEXT state (e.g. inside `<style>`).
+    /// Entities are not decoded; only the matching end tag terminates the state.
+    Rawtext(String),
+    /// Script data state (e.g. inside `<script>`).
+    /// Entities are not decoded; only the matching `</script>` terminates the state.
+    ScriptData(String),
+}
+
 /// Tokenizer that scans HTML character data and produces [`Token`] instances.
 #[derive(Debug, Clone)]
 pub struct Tokenizer {
     chars: Vec<char>,
     pos: usize,
+    state: TokenizerState,
 }
 
 impl Tokenizer {
@@ -17,7 +35,19 @@ impl Tokenizer {
         Self {
             chars: input.chars().collect(),
             pos: 0,
+            state: TokenizerState::Data,
         }
+    }
+
+    /// Returns the current tokenizer state.
+    #[must_use]
+    pub fn state(&self) -> &TokenizerState {
+        &self.state
+    }
+
+    /// Sets the tokenizer state (e.g. switching to RCDATA or RAWTEXT).
+    pub fn set_state(&mut self, state: TokenizerState) {
+        self.state = state;
     }
 
     /// Returns `true` if the tokenizer has reached the end of the input.
@@ -101,6 +131,73 @@ impl Tokenizer {
             return Token::Eof;
         }
 
+        match &self.state {
+            TokenizerState::Rcdata(tag_name) => {
+                let tag = tag_name.clone();
+                self.tokenize_raw_or_rcdata(&tag, true)
+            }
+            TokenizerState::Rawtext(tag_name) | TokenizerState::ScriptData(tag_name) => {
+                let tag = tag_name.clone();
+                self.tokenize_raw_or_rcdata(&tag, false)
+            }
+            TokenizerState::Data => self.tokenize_data(),
+        }
+    }
+
+    fn tokenize_raw_or_rcdata(&mut self, tag_name: &str, decode: bool) -> Token {
+        let mut text = String::new();
+
+        while !self.is_eof() {
+            if self.is_matching_end_tag(tag_name) {
+                break;
+            }
+            if let Some(ch) = self.next_char() {
+                text.push(ch);
+            }
+        }
+
+        // Return to data state
+        self.state = TokenizerState::Data;
+
+        if text.is_empty() && self.is_matching_end_tag(tag_name) {
+            // Nothing between tags; directly parse end tag
+            self.tokenize_end_tag()
+        } else if decode {
+            Token::Text(decode_entities(&text))
+        } else {
+            Token::Text(text)
+        }
+    }
+
+    fn is_matching_end_tag(&self, tag_name: &str) -> bool {
+        if !self.starts_with("</") {
+            return false;
+        }
+
+        let prefix_len = 2; // "</"
+        let tag_chars: Vec<char> = tag_name.chars().collect();
+
+        if self.pos + prefix_len + tag_chars.len() > self.chars.len() {
+            return false;
+        }
+
+        for (i, &tch) in tag_chars.iter().enumerate() {
+            if !self.chars[self.pos + prefix_len + i].eq_ignore_ascii_case(&tch) {
+                return false;
+            }
+        }
+
+        // Must be followed by '>', '/', whitespace, or EOF
+        let after_idx = self.pos + prefix_len + tag_chars.len();
+        if after_idx < self.chars.len() {
+            let next_ch = self.chars[after_idx];
+            next_ch == '>' || next_ch == '/' || next_ch.is_ascii_whitespace()
+        } else {
+            true
+        }
+    }
+
+    fn tokenize_data(&mut self) -> Token {
         if self.peek() == Some('<') {
             if self.starts_with("<!--") {
                 return self.tokenize_comment();

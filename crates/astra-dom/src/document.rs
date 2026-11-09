@@ -2,7 +2,7 @@
 
 use core::fmt::Write;
 
-use crate::data::{Comment, DocumentType, Element, NodeData, Text};
+use crate::data::{Comment, DocumentType, Element, NodeData, QuirksMode, Text};
 use crate::error::DomError;
 use crate::id::NodeId;
 use crate::iter::{AncestorsIter, ChildrenIter, DescendantsIter, ElementChildrenIter};
@@ -17,6 +17,7 @@ use crate::node::Node;
 pub struct Document {
     nodes: Vec<Node>,
     root: NodeId,
+    quirks_mode: QuirksMode,
 }
 
 impl Default for Document {
@@ -34,7 +35,21 @@ impl Document {
         Self {
             nodes: vec![root_node],
             root: root_id,
+            quirks_mode: QuirksMode::NoQuirks,
         }
+    }
+
+    /// Returns the document's compatibility / quirks mode.
+    #[inline]
+    #[must_use]
+    pub const fn quirks_mode(&self) -> QuirksMode {
+        self.quirks_mode
+    }
+
+    /// Sets the document's compatibility / quirks mode.
+    #[inline]
+    pub fn set_quirks_mode(&mut self, mode: QuirksMode) {
+        self.quirks_mode = mode;
     }
 
     /// Returns the root `NodeId` of the document.

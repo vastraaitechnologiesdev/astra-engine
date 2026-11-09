@@ -17,3 +17,7 @@ path = "milestone.rs"
 [[test]]
 name = "html_tests"
 path = "html_tests.rs"
+
+[[test]]
+name = "tree_construction"
+path = "tree_construction_tests.rs"

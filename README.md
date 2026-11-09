@@ -31,7 +31,7 @@ astra-engine/
 ├── Cargo.toml                  # Workspace manifest (Rust 2024 edition, resolver 3)
 ├── crates/
 │   ├── astra-dom/              # Arena-based DOM tree and node storage
-│   └── astra-html/             # Custom HTML tokenizer and DOM tree constructor
+│   └── astra-html/             # Custom HTML tokenizer and tree builder
 ├── tests/                      # Workspace integration and milestone test suite
 ├── docs/                       # Architectural specifications and design notes
 ├── README.md                   # Project documentation
@@ -44,28 +44,40 @@ astra-engine/
   - Memory-efficient arena allocation using stable `NodeId` references.
   - Zero reference-counting memory leaks or cyclic graphs.
   - Complete DOM node abstractions: `Document`, `Element`, `Text`, `Comment`, and `DocumentType`.
+  - Document compatibility modes: `QuirksMode` (`NoQuirks`, `Quirks`, `LimitedQuirks`).
   - Comprehensive tree mutation and traversal APIs (`children`, `element_children`, `ancestors`, `descendants`).
 - **`astra-html`**:
-  - Custom streaming tokenizer for HTML markup, attributes (quoted, unquoted, boolean), comments, and DOCTYPE declarations.
-  - Resilient HTML parser building DOM trees from token streams.
-  - Native support for standard HTML void elements (`img`, `br`, `meta`, `input`, `hr`, etc.).
-  - Robust recovery for malformed markup (unclosed tags, mismatched tags, stray end tags).
+  - Custom streaming tokenizer supporting tags, attributes, comments, DOCTYPEs, and RCDATA/RAWTEXT state switches.
+  - Full HTML5 tree construction state machine (`TreeBuilder`) supporting 16 insertion modes:
+    - Document structure: `Initial`, `BeforeHtml`, `BeforeHead`, `InHead`, `AfterHead`, `InBody`, `Text`, `AfterBody`, `AfterAfterBody`.
+    - Table foundation: `InTable`, `InTableText`, `InCaption`, `InColumnGroup`, `InTableBody`, `InRow`, `InCell`.
+  - Automatic structure insertion for missing `<html>`, `<head>`, and `<body>`.
+  - Basic HTML5 error recovery:
+    - Paragraph auto-closing upon encountering block-level elements or nested paragraphs.
+    - List item (`<li>`) and definition list (`<dt>`, `<dd>`) auto-closing.
+    - Heading recovery (`<h1>`-`<h6>`).
+    - Foster parenting for misnested table text and elements.
   - Built-in HTML character reference and entity decoding (`&amp;`, `&lt;`, `&gt;`, `&#...;`).
 
 ---
 
 ## Current Development Status
 
-- **Version**: `0.0.1 (Milestone 1)`
+- **Version**: `0.0.1`
 - **Completed**:
   - [x] Shared Rust 2024 workspace initialization with resolver 3.
   - [x] Arena-based DOM implementation (`astra-dom`).
   - [x] Custom HTML tokenizer supporting tags, attributes, comments, and DOCTYPEs (`astra-html`).
-  - [x] Custom HTML tree construction parser with void elements and recovery (`astra-html`).
-  - [x] Milestone verification test parsing the core HTML5 document.
-  - [x] Full automated test suite (19 tests covering DOM operations, tokenization, tree generation, and error recovery).
+  - [x] **Milestone 2: HTML5 Tree Construction Foundation**:
+    - [x] 16-mode insertion state machine (`TreeBuilder`).
+    - [x] Automatic document structure insertion (`<html>`, `<head>`, `<body>`).
+    - [x] Paragraph auto-closing, list item auto-closing, and heading recovery.
+    - [x] Table parsing modes and foster parenting algorithm.
+    - [x] Tokenizer RCDATA (`<title>`, `<textarea>`) and RAWTEXT (`<style>`, `<script>`) states.
+    - [x] DOCTYPE quirks mode determination (`NoQuirks`, `Quirks`, `LimitedQuirks`).
+    - [x] 36/36 automated unit and integration tests passing.
 - **Upcoming Milestones**:
-  - CSS tokenizer, parser, and CSSOM.
+  - CSS tokenizer, parser, and CSSOM (Milestone 3).
   - Style resolution and cascade engine.
   - Layout tree computation (flow layout, box model).
   - Android SDK JNI bindings and native surface integration.
@@ -116,28 +128,19 @@ Run code formatting checks:
 cargo fmt --all -- --check
 ```
 
-### Running the Milestone Test
+### Running Milestone Tests
 
-To execute the Core v0.0.1 milestone verification test specifically:
+To execute the Milestone 1 verification test specifically:
 
 ```bash
 cargo test --test milestone -- --nocapture
 ```
 
-The milestone test verifies parsing of:
-```html
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Astra Engine</title>
-    </head>
-    <body>
-        <h1>Hello Astra!</h1>
-        <p>Our own browser engine.</p>
-    </body>
-</html>
+To execute the Milestone 2 tree construction test suite:
+
+```bash
+cargo test --test tree_construction -- --nocapture
 ```
-and validates the complete hierarchical DOM tree and text contents.
 
 ---
 
