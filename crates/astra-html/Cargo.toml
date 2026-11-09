@@ -1,0 +1,15 @@
+[package]
+name = "astra-html"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "HTML tokenizer and parser for Astra Engine"
+readme = "../../README.md"
+
+[dependencies]
+astra-dom.workspace = true
+
+[dev-dependencies]

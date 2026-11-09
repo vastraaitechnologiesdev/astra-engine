@@ -1,0 +1,21 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/astra-dom",
+    "crates/astra-html",
+    "tests",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+authors = ["V Astra AI Technologies"]
+license = "Apache-2.0"
+repository = "https://github.com/vastraaitechnologiesdev/astra-engine"
+homepage = "https://github.com/vastraaitechnologiesdev/astra-engine"
+readme = "README.md"
+description = "Astra Engine - An independent, Android-first browser rendering engine"
+
+[workspace.dependencies]
+astra-dom = { path = "crates/astra-dom" }
+astra-html = { path = "crates/astra-html" }

@@ -1,0 +1,12 @@
+[package]
+name = "astra-dom"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Core DOM tree and arena-based node representation for Astra Engine"
+readme = "../../README.md"
+
+[dependencies]
